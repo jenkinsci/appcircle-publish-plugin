@@ -1,0 +1,32 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:entry title="${%Personal API Token}" field="personalAPIToken">
+        <f:password />
+    </f:entry>
+    <f:entry title="Platform" field="platform">
+        <select name="platform">
+            <option value="ios">iOS</option>
+            <option value="android">Android</option>
+        </select>
+    </f:entry>
+    <f:entry title="${%Publish Profile Name}" field="publishProfile">
+        <f:textbox checkMethod="post" />
+    </f:entry>
+    <f:entry title="${%Upload binary}" field="upload">
+        <f:checkbox />
+    </f:entry>
+    <f:entry title="${%Trigger publish flow}" field="publish">
+        <f:checkbox />
+    </f:entry>
+    <f:entry title="${%App Path}" field="appPath">
+        <f:textbox checkMethod="post" />
+    </f:entry>
+    <f:advanced title="Self-Hosted Appcircle">
+        <f:entry title="Auth Endpoint" field="authEndpoint">
+            <f:textbox value="${instance.authEndpoint}"/>
+        </f:entry>
+        <f:entry title="API Endpoint" field="apiEndpoint">
+            <f:textbox value="${instance.apiEndpoint}"/>
+        </f:entry>
+    </f:advanced>
+</j:jelly>
