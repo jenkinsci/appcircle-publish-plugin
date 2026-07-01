@@ -2,6 +2,7 @@ package io.jenkins.plugins.appcircle.publish;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.model.TaskListener;
+import hudson.util.Secret;
 import java.io.File;
 import java.io.IOException;
 import java.net.SocketException;
@@ -52,11 +53,12 @@ public class PublishService {
         FLOW_STEP_STATUS.put(203, "Awaiting Response");
     }
 
-    String authToken;
+    // Stored as Secret so the bearer token is never held (or serialized) as plaintext.
+    private final Secret authToken;
     String baseUrl;
 
     public PublishService(String authToken, String apiEndpoint) {
-        this.authToken = authToken;
+        this.authToken = Secret.fromString(authToken);
         this.baseUrl = (apiEndpoint == null || apiEndpoint.trim().isEmpty())
                 ? DEFAULT_API_ENDPOINT
                 : apiEndpoint.trim().replaceAll("/+$", "");
@@ -92,7 +94,7 @@ public class PublishService {
     private JSONObject getJson(String url) throws IOException {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);
-            request.setHeader("Authorization", "Bearer " + this.authToken);
+            request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Accept", "application/json");
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int status = response.getStatusLine().getStatusCode();
@@ -108,7 +110,7 @@ public class PublishService {
     private JSONArray getJsonArray(String url) throws IOException {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);
-            request.setHeader("Authorization", "Bearer " + this.authToken);
+            request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Accept", "application/json");
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int status = response.getStatusLine().getStatusCode();
@@ -166,7 +168,7 @@ public class PublishService {
                 this.baseUrl, platform, publishProfileId, appVersionId);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPatch request = new HttpPatch(url);
-            request.setHeader("Authorization", "Bearer " + this.authToken);
+            request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Content-Type", "application/json");
             JSONObject body = new JSONObject();
             body.put("ReleaseCandidate", true);
@@ -221,7 +223,7 @@ public class PublishService {
                 this.baseUrl, platform, publishProfileId, publishId);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPost request = new HttpPost(url);
-            request.setHeader("Authorization", "Bearer " + this.authToken);
+            request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Content-Type", "application/json");
             request.setEntity(new StringEntity("{}", ContentType.APPLICATION_JSON));
             try (CloseableHttpResponse response = httpClient.execute(request)) {
@@ -322,7 +324,7 @@ public class PublishService {
                     .build();
             try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                 HttpGet request = new HttpGet(uri);
-                request.setHeader("Authorization", "Bearer " + this.authToken);
+                request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
                 request.setHeader("Accept", "application/json");
                 try (CloseableHttpResponse response = httpClient.execute(request)) {
                     int status = response.getStatusLine().getStatusCode();
@@ -402,7 +404,7 @@ public class PublishService {
             payload.put("fileName", fileName);
             try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                 HttpPost request = new HttpPost(uri);
-                request.setHeader("Authorization", "Bearer " + this.authToken);
+                request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
                 request.setHeader("Accept", "application/json");
                 request.setEntity(new StringEntity(payload.toString(), ContentType.APPLICATION_JSON));
                 try (CloseableHttpResponse response = httpClient.execute(request)) {
@@ -434,7 +436,7 @@ public class PublishService {
         String result = "";
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);
-            request.setHeader("Authorization", "Bearer " + this.authToken);
+            request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 HttpEntity entity = response.getEntity();
                 if (entity != null) {

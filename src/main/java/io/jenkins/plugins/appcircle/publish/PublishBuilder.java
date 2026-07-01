@@ -6,6 +6,7 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractProject;
+import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -16,10 +17,12 @@ import hudson.util.Secret;
 import io.jenkins.plugins.appcircle.publish.Models.UserResponse;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -186,14 +189,26 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
+        // Form validation reaches back-end logic, so it must be gated behind a permission check
+        // to avoid exposing it to users without configure access (Jenkins security best practice).
+        private void checkPermission(Item item) {
+            if (item == null) {
+                Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            } else {
+                item.checkPermission(Item.CONFIGURE);
+            }
+        }
+
         @POST
-        public FormValidation doCheckPersonalAPIToken(@QueryParameter String value) {
+        public FormValidation doCheckPersonalAPIToken(@AncestorInPath Item item, @QueryParameter String value) {
+            checkPermission(item);
             if (value.isEmpty()) return FormValidation.error("Personal API Token cannot be empty");
             return FormValidation.ok();
         }
 
         @POST
-        public FormValidation doCheckPlatform(@QueryParameter String value) {
+        public FormValidation doCheckPlatform(@AncestorInPath Item item, @QueryParameter String value) {
+            checkPermission(item);
             if (value.isEmpty()) return FormValidation.error("Platform cannot be empty");
             if (!value.equalsIgnoreCase("ios") && !value.equalsIgnoreCase("android")) {
                 return FormValidation.error("Platform must be 'ios' or 'android'.");
@@ -202,13 +217,15 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
         }
 
         @POST
-        public FormValidation doCheckPublishProfile(@QueryParameter String value) {
+        public FormValidation doCheckPublishProfile(@AncestorInPath Item item, @QueryParameter String value) {
+            checkPermission(item);
             if (value.isEmpty()) return FormValidation.error("Publish Profile cannot be empty");
             return FormValidation.ok();
         }
 
         @POST
-        public FormValidation doCheckAppPath(@QueryParameter String value) {
+        public FormValidation doCheckAppPath(@AncestorInPath Item item, @QueryParameter String value) {
+            checkPermission(item);
             if (!value.isEmpty() && !value.matches(".*\\.(apk|aab|ipa)$")) {
                 return FormValidation.error(
                         "Invalid file extension: For Android, use .apk or .aab. For iOS, use .ipa.");

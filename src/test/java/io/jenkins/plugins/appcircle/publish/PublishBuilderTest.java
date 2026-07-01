@@ -1,8 +1,8 @@
 package io.jenkins.plugins.appcircle.publish;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class PublishBuilderTest {
+class PublishBuilderTest {
     @Test
-    public void testConfigRoundtrip() {}
+    void testConfigRoundtrip() {}
 }
