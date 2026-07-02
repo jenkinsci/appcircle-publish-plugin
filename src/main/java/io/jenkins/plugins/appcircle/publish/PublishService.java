@@ -1,10 +1,11 @@
 package io.jenkins.plugins.appcircle.publish;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
+import hudson.FilePath;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -20,10 +21,9 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.FileEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -290,10 +290,10 @@ public class PublishService {
 
     /* ----- Upload (v2 signed-URL flow, on the publish/v1 path) ----- */
 
-    public JSONObject uploadArtifact(String platform, String publishProfileId, String appPath) throws IOException {
-        File file = new File(appPath);
-        String fileName = file.getName();
-        long fileSize = file.length();
+    public JSONObject uploadArtifact(String platform, String publishProfileId, FilePath artifact)
+            throws IOException, InterruptedException {
+        String fileName = artifact.getName();
+        long fileSize = artifact.length();
 
         JSONObject uploadInfo = getUploadInformation(platform, publishProfileId, fileName, fileSize);
         String fileId = uploadInfo.optString("fileId");
@@ -305,9 +305,9 @@ public class PublishService {
                         : "PUT";
 
         if ("POST".equals(httpMethod)) {
-            uploadViaPost(uploadUrl, file, configuration);
+            uploadViaPost(uploadUrl, artifact, fileName, configuration);
         } else {
-            uploadViaPut(uploadUrl, file);
+            uploadViaPut(uploadUrl, artifact, fileSize);
         }
 
         return commitFileUpload(platform, publishProfileId, fileId, fileName);
@@ -340,13 +340,16 @@ public class PublishService {
         }
     }
 
-    private void uploadViaPut(String uploadUrl, File file) throws IOException {
+    private void uploadViaPut(String uploadUrl, FilePath artifact, long fileSize)
+            throws IOException, InterruptedException {
         IOException lastError = null;
         long delayMillis = 1000;
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            // Reopen the stream from the agent on every attempt so retries re-send from the start.
+            try (CloseableHttpClient httpClient = HttpClients.createDefault();
+                    InputStream in = artifact.read()) {
                 HttpPut request = new HttpPut(uploadUrl);
-                request.setEntity(new FileEntity(file, ContentType.APPLICATION_OCTET_STREAM));
+                request.setEntity(new InputStreamEntity(in, fileSize, ContentType.APPLICATION_OCTET_STREAM));
                 try (CloseableHttpResponse response = httpClient.execute(request)) {
                     int status = response.getStatusLine().getStatusCode();
                     EntityUtils.consumeQuietly(response.getEntity());
@@ -370,8 +373,10 @@ public class PublishService {
         throw lastError != null ? lastError : new IOException("File upload failed.");
     }
 
-    private void uploadViaPost(String uploadUrl, File file, @Nullable JSONObject configuration) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+    private void uploadViaPost(String uploadUrl, FilePath artifact, String fileName, @Nullable JSONObject configuration)
+            throws IOException, InterruptedException {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();
+                InputStream in = artifact.read()) {
             HttpPost request = new HttpPost(uploadUrl);
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
             JSONObject signParameters = configuration != null ? configuration.optJSONObject("signParameters") : null;
@@ -380,7 +385,8 @@ public class PublishService {
                     builder.addTextBody(key, signParameters.optString(key));
                 }
             }
-            builder.addPart("file", new FileBody(file)); // file field MUST be last
+            // file field MUST be last
+            builder.addBinaryBody("file", in, ContentType.APPLICATION_OCTET_STREAM, fileName);
             request.setEntity(builder.build());
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int status = response.getStatusLine().getStatusCode();

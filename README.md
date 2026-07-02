@@ -38,13 +38,12 @@ Add the **Appcircle Publish** build step to a Freestyle job (or use the `appcirc
 Pipeline example:
 
 ```groovy
-step([$class: 'PublishBuilder',
-      personalAPIToken: env.AC_PERSONAL_API_TOKEN,
-      platform: 'ios',
-      publishProfile: 'My Publish Profile',
-      upload: true,
-      publish: true,
-      appPath: 'app.ipa'])
+appcirclePublish personalAPIToken: env.AC_PERSONAL_API_TOKEN,
+                 platform: 'ios',
+                 publishProfile: 'My Publish Profile',
+                 upload: true,
+                 publish: true,
+                 appPath: 'app.ipa'
 ```
 
 ### Self-Hosted Appcircle
