@@ -11,6 +11,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jenkins.plugins.appcircle.publish.Models.UserResponse;
 import java.io.IOException;
@@ -21,6 +22,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 public class PublishBuilder extends Builder implements SimpleBuildStep {
 
@@ -188,6 +191,17 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
     @Symbol("appcirclePublish")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
+
+        // Validate the artifact file extension only. No sensitive/back-end access, so no permission
+        // check is needed here; the lgtm suppression tells the Jenkins security scan this is intentional.
+        @POST
+        public FormValidation doCheckAppPath(@QueryParameter String value) { // lgtm[jenkins/no-permission-check]
+            if (!value.isEmpty() && !value.matches(".*\\.(apk|aab|ipa)$")) {
+                return FormValidation.error(
+                        "Invalid file extension: For Android, use .apk or .aab. For iOS, use .ipa.");
+            }
+            return FormValidation.ok();
+        }
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
