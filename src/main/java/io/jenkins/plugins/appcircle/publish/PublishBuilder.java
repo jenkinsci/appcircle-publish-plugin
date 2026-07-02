@@ -6,27 +6,21 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractProject;
-import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
-import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jenkins.plugins.appcircle.publish.Models.UserResponse;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.POST;
 
 public class PublishBuilder extends Builder implements SimpleBuildStep {
 
@@ -46,8 +40,8 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
         this.publishProfile = publishProfile;
     }
 
-    public String getPersonalAPIToken() {
-        return personalAPIToken.getPlainText();
+    public Secret getPersonalAPIToken() {
+        return personalAPIToken;
     }
 
     public String getPlatform() {
@@ -130,7 +124,7 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
                 }
             }
 
-            UserResponse response = AuthService.getAcToken(this.personalAPIToken.getPlainText(), this.authEndpoint);
+            UserResponse response = AuthService.getAcToken(this.personalAPIToken, this.authEndpoint);
             listener.getLogger().println("Login is successful.");
             PublishService publishService = new PublishService(response.getAccessToken(), this.apiEndpoint);
 
@@ -144,7 +138,13 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
             String appVersionId = null;
 
             if (this.upload) {
-                JSONObject uploadResponse = publishService.uploadArtifact(plat, publishProfileId, this.appPath);
+                // The artifact lives in the build workspace on the agent, not on the controller,
+                // so resolve it through the FilePath passed to perform() (remote-safe access).
+                FilePath artifact = workspace.child(this.appPath);
+                if (!artifact.exists()) {
+                    throw new IOException("App path not found in workspace: " + this.appPath);
+                }
+                JSONObject uploadResponse = publishService.uploadArtifact(plat, publishProfileId, artifact);
                 Boolean uploaded = publishService.checkUploadStatus(uploadResponse.optString("taskId"));
                 if (uploaded) {
                     appVersionId = publishService.getLatestAppVersionId(plat, publishProfileId);
@@ -188,50 +188,6 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
     @Symbol("appcirclePublish")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-
-        // Form validation reaches back-end logic, so it must be gated behind a permission check
-        // to avoid exposing it to users without configure access (Jenkins security best practice).
-        private void checkPermission(Item item) {
-            if (item == null) {
-                Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-            } else {
-                item.checkPermission(Item.CONFIGURE);
-            }
-        }
-
-        @POST
-        public FormValidation doCheckPersonalAPIToken(@AncestorInPath Item item, @QueryParameter String value) {
-            checkPermission(item);
-            if (value.isEmpty()) return FormValidation.error("Personal API Token cannot be empty");
-            return FormValidation.ok();
-        }
-
-        @POST
-        public FormValidation doCheckPlatform(@AncestorInPath Item item, @QueryParameter String value) {
-            checkPermission(item);
-            if (value.isEmpty()) return FormValidation.error("Platform cannot be empty");
-            if (!value.equalsIgnoreCase("ios") && !value.equalsIgnoreCase("android")) {
-                return FormValidation.error("Platform must be 'ios' or 'android'.");
-            }
-            return FormValidation.ok();
-        }
-
-        @POST
-        public FormValidation doCheckPublishProfile(@AncestorInPath Item item, @QueryParameter String value) {
-            checkPermission(item);
-            if (value.isEmpty()) return FormValidation.error("Publish Profile cannot be empty");
-            return FormValidation.ok();
-        }
-
-        @POST
-        public FormValidation doCheckAppPath(@AncestorInPath Item item, @QueryParameter String value) {
-            checkPermission(item);
-            if (!value.isEmpty() && !value.matches(".*\\.(apk|aab|ipa)$")) {
-                return FormValidation.error(
-                        "Invalid file extension: For Android, use .apk or .aab. For iOS, use .ipa.");
-            }
-            return FormValidation.ok();
-        }
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {

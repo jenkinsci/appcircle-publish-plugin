@@ -30,14 +30,6 @@
     <url>https://github.com/jenkinsci/appcircle-publish-plugin</url>
   </scm>
 
-  <distributionManagement>
-    <repository>
-      <id>maven.jenkins-ci.org</id>
-      <!-- This should match the ID in settings.xml -->
-      <url>https://repo.jenkins-ci.org/releases/</url>
-    </repository>
-  </distributionManagement>
-
   <properties>
     <changelist>999999-SNAPSHOT</changelist>
 

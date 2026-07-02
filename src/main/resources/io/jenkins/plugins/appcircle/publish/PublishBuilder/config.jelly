@@ -1,32 +1,33 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:entry title="${%Personal API Token}" field="personalAPIToken">
-        <f:password />
+        <f:password clazz="required" checkMessage="${%Personal API Token cannot be empty}"/>
     </f:entry>
-    <f:entry title="Platform" field="platform">
-        <select name="platform">
-            <option value="ios">iOS</option>
-            <option value="android">Android</option>
-        </select>
+    <f:entry title="${%Platform}" field="platform">
+        <div class="jenkins-select">
+            <select name="platform" class="jenkins-select__input">
+                <f:option value="ios" selected="${instance.platform=='ios'}">iOS</f:option>
+                <f:option value="android" selected="${instance.platform=='android'}">Android</f:option>
+            </select>
+        </div>
     </f:entry>
     <f:entry title="${%Publish Profile Name}" field="publishProfile">
-        <f:textbox checkMethod="post" />
+        <f:textbox clazz="required" checkMessage="${%Publish Profile Name cannot be empty}"/>
     </f:entry>
-    <f:entry title="${%Upload binary}" field="upload">
-        <f:checkbox />
-    </f:entry>
+    <f:optionalBlock title="${%Upload binary}" field="upload" inline="true">
+        <f:entry title="${%App Path}" field="appPath">
+            <f:textbox/>
+        </f:entry>
+    </f:optionalBlock>
     <f:entry title="${%Trigger publish flow}" field="publish">
         <f:checkbox />
     </f:entry>
-    <f:entry title="${%App Path}" field="appPath">
-        <f:textbox checkMethod="post" />
-    </f:entry>
     <f:advanced title="Self-Hosted Appcircle">
-        <f:entry title="Auth Endpoint" field="authEndpoint">
-            <f:textbox value="${instance.authEndpoint}"/>
+        <f:entry title="${%Auth Endpoint}" field="authEndpoint">
+            <f:textbox/>
         </f:entry>
-        <f:entry title="API Endpoint" field="apiEndpoint">
-            <f:textbox value="${instance.apiEndpoint}"/>
+        <f:entry title="${%API Endpoint}" field="apiEndpoint">
+            <f:textbox/>
         </f:entry>
     </f:advanced>
 </j:jelly>
