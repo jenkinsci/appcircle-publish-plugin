@@ -1,4 +1,4 @@
 <?jelly escape-by-default='true'?>
 <div>
-    Upload an application binary to an Appcircle Publish profile and/or trigger its publish flow (app store publishing).
+    Upload an application binary to an Appcircle Publish profile and/or trigger its publish flow (app store publishing) directly from your Jenkins pipeline.
 </div>
