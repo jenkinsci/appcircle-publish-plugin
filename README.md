@@ -2,18 +2,26 @@
 
 Upload an application binary to an Appcircle **Publish** profile and/or trigger its publish flow (app store publishing) directly from your Jenkins pipeline.
 
+Appcircle's **Publish to Stores** module gives you:
+
+- **Centralized Store Publishing:** Manage App Store, Google Play, Huawei AppGallery, and Microsoft Intune releases from a single hub instead of navigating each platform separately.
+- **Custom Publish Flows:** Automate your release cycle with repeatable publish flows and ready-to-use integrations tailored to your organization's needs.
+- **Approval Gates:** Add manual approval steps to your publish flow to keep every release under control before it goes live.
+- **Auto Re-sign:** Automatically apply updated signing credentials and versioning to uploaded binaries, keeping releases properly signed without a new build.
+- **Audit and Reporting:** Track every publishing step with audit trails and publish reports for full transparency and compliance.
+
 Learn more about [Appcircle Publish](https://appcircle.io/publish-to-stores?utm_source=jenkins&utm_medium=plugin&utm_campaign=publish).
 
 ## What the plugin does
 
-The build step has two independent switches — `upload` and `publish` — both default to `false`. **You must enable at least one.** Create the Publish profile in Appcircle first; the step targets it by name (profile names are unique per platform).
+The build step has two independent switches (`upload` and `publish`), both default to `false`. **You must enable at least one.** Create the Publish profile in Appcircle first; the step targets it by name (profile names are unique per platform).
 
 | `upload` | `publish` | Behavior |
 |:--------:|:---------:|----------|
 | `true`  | `false` | Upload the binary at App Path as a new app version on the profile. |
 | `false` | `true`  | Trigger the publish flow for the profile's **current release candidate**. |
 | `true`  | `true`  | Upload the binary, **mark the new version as release candidate**, then trigger the publish flow for it. |
-| `false` | `false` | Error — nothing to do. |
+| `false` | `false` | Error: nothing to do. |
 
 **Rules:**
 
@@ -27,13 +35,13 @@ The build step has two independent switches — `upload` and `publish` — both 
 
 Add the **Appcircle Publish** build step to a Freestyle job (or use the `appcirclePublish` symbol in a Pipeline). Configure:
 
-- **Personal API Token** — Appcircle Personal API Token used to authenticate Appcircle services.
-- **Platform** — `iOS` or `Android`.
-- **Publish Profile Name** — name of the Publish profile to target (unique per platform).
-- **Upload binary** — upload App Path as a new app version. (At least one of Upload / Trigger publish flow must be checked.)
-- **Trigger publish flow** — start the profile's publish flow.
-- **App Path** — path to the application file; required when Upload is checked. iOS: `.ipa`; Android: `.apk` / `.aab`.
-- **Self-Hosted Appcircle** (advanced) — optional `Auth Endpoint` / `API Endpoint`; default to the Appcircle cloud.
+- **Personal API Token:** Appcircle Personal API Token used to authenticate Appcircle services.
+- **Platform:** `iOS` or `Android`.
+- **Publish Profile Name:** name of the Publish profile to target (unique per platform).
+- **Upload binary:** upload App Path as a new app version. (At least one of Upload / Trigger publish flow must be checked.)
+- **Trigger publish flow:** start the profile's publish flow.
+- **App Path:** path to the application file; required when Upload is checked. iOS: `.ipa`; Android: `.apk` / `.aab`.
+- **Self-Hosted Appcircle** (advanced): optional `Auth Endpoint` / `API Endpoint`; default to the Appcircle cloud.
 
 Pipeline example:
 
