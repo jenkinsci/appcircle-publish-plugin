@@ -10,7 +10,7 @@ Appcircle's **Publish to Stores** module gives you:
 - **Auto Re-sign:** Automatically apply updated signing credentials and versioning to uploaded binaries, keeping releases properly signed without a new build.
 - **Audit and Reporting:** Track every publishing step with audit trails and publish reports for full transparency and compliance.
 
-Learn more about [Appcircle Publish](https://appcircle.io/publish-to-stores?utm_source=jenkins&utm_medium=plugin&utm_campaign=publish).
+Learn more about [Appcircle Publish to Stores](https://appcircle.io/publish-to-stores?utm_source=jenkins&utm_medium=plugin&utm_campaign=publish).
 
 ## What the plugin does
 
@@ -62,4 +62,4 @@ Set the optional `authEndpoint` / `apiEndpoint` to target a self-hosted Appcircl
 
 ## References
 
-For more detailed instructions and support, visit the [Appcircle Publish documentation](https://docs.appcircle.io/publish-to-stores-module).
+For more detailed instructions and support, visit the [Appcircle Publish to Stores documentation](https://docs.appcircle.io/marketplace/jenkins/publish-to-stores).
