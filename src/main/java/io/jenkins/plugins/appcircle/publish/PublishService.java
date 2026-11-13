@@ -9,11 +9,14 @@ import java.io.InputStream;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.http.HttpEntity;
 import org.apache.http.NoHttpResponseException;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
@@ -25,7 +28,6 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -56,6 +58,7 @@ public class PublishService {
     // Stored as Secret so the bearer token is never held (or serialized) as plaintext.
     private final Secret authToken;
     String baseUrl;
+    private TaskStatusPoller taskStatusPoller = new TaskStatusPoller();
 
     public PublishService(String authToken, String apiEndpoint) {
         this.authToken = Secret.fromString(authToken);
@@ -92,7 +95,7 @@ public class PublishService {
     }
 
     private JSONObject getJson(String url) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);
             request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Accept", "application/json");
@@ -108,7 +111,7 @@ public class PublishService {
     }
 
     private JSONArray getJsonArray(String url) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);
             request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Accept", "application/json");
@@ -166,7 +169,7 @@ public class PublishService {
         String url = String.format(
                 "%s/publish/v2/profiles/%s/%s/app-versions/%s?action=releaseCandidate",
                 this.baseUrl, platform, publishProfileId, appVersionId);
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
             HttpPatch request = new HttpPatch(url);
             request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Content-Type", "application/json");
@@ -221,7 +224,7 @@ public class PublishService {
         String url = String.format(
                 "%s/publish/v2/profiles/%s/%s/publish/%s?action=restart",
                 this.baseUrl, platform, publishProfileId, publishId);
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
             HttpPost request = new HttpPost(url);
             request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             request.setHeader("Content-Type", "application/json");
@@ -322,7 +325,7 @@ public class PublishService {
                     .addParameter("fileName", fileName)
                     .addParameter("fileSize", String.valueOf(fileSize))
                     .build();
-            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
                 HttpGet request = new HttpGet(uri);
                 request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
                 request.setHeader("Accept", "application/json");
@@ -346,7 +349,7 @@ public class PublishService {
         long delayMillis = 1000;
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             // Reopen the stream from the agent on every attempt so retries re-send from the start.
-            try (CloseableHttpClient httpClient = HttpClients.createDefault();
+            try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault();
                     InputStream in = artifact.read()) {
                 HttpPut request = new HttpPut(uploadUrl);
                 request.setEntity(new InputStreamEntity(in, fileSize, ContentType.APPLICATION_OCTET_STREAM));
@@ -375,7 +378,7 @@ public class PublishService {
 
     private void uploadViaPost(String uploadUrl, FilePath artifact, String fileName, @Nullable JSONObject configuration)
             throws IOException, InterruptedException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault();
+        try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault();
                 InputStream in = artifact.read()) {
             HttpPost request = new HttpPost(uploadUrl);
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
@@ -408,7 +411,7 @@ public class PublishService {
             JSONObject payload = new JSONObject();
             payload.put("fileId", fileId);
             payload.put("fileName", fileName);
-            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            try (CloseableHttpClient httpClient = AppcircleHttpClients.createDefault()) {
                 HttpPost request = new HttpPost(uri);
                 request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
                 request.setHeader("Accept", "application/json");
@@ -437,34 +440,37 @@ public class PublishService {
         }
     }
 
-    public Boolean checkUploadStatus(String taskId) throws Exception {
-        String url = String.format("%s/task/v1/tasks/%s", this.baseUrl, taskId);
-        String result = "";
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+    void setTaskStatusPoller(TaskStatusPoller poller) {
+        this.taskStatusPoller = poller;
+    }
+
+    TaskStatusPoller.Reply readTaskStatus(String taskId) throws IOException {
+        String encodedTaskId = URLEncoder.encode(taskId, StandardCharsets.UTF_8).replace("+", "%20");
+        String url = String.format("%s/task/v1/tasks/%s", this.baseUrl, encodedTaskId);
+        int timeoutMs = taskStatusPoller.requestTimeoutMs();
+        RequestConfig config = RequestConfig.custom()
+                .setConnectTimeout(timeoutMs)
+                .setConnectionRequestTimeout(timeoutMs)
+                .setSocketTimeout(timeoutMs)
+                .build();
+        try (CloseableHttpClient httpClient =
+                AppcircleHttpClients.builder().disableAutomaticRetries().build()) {
             HttpGet request = new HttpGet(url);
+            request.setConfig(config);
             request.setHeader("Authorization", "Bearer " + Secret.toString(this.authToken));
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 HttpEntity entity = response.getEntity();
-                if (entity != null) {
-                    result = EntityUtils.toString(entity);
-                }
-                JSONObject jsonResponse = new JSONObject(result);
-                Integer stateValue = jsonResponse.optInt("stateValue", -1);
-                String stateName = jsonResponse.optString("stateName");
-                if (stateName == null) {
-                    throw new Exception("Upload Status Could Not Received");
-                } else if (stateValue == 2) {
-                    throw new Exception(taskId + " id upload request failed with status " + stateName);
-                } else if (stateValue == 1) {
-                    Thread.sleep(2000);
-                    return checkUploadStatus(taskId);
-                } else if (stateValue == 3) {
-                    return true;
-                }
+                return new TaskStatusPoller.Reply(
+                        response.getStatusLine().getStatusCode(), entity == null ? null : EntityUtils.toString(entity));
             }
-        } catch (Exception e) {
-            throw e;
         }
+    }
+
+    public Boolean checkUploadStatus(String taskId) throws Exception {
+        taskStatusPoller.waitForCompletion(
+                taskId,
+                this::readTaskStatus,
+                stateName -> taskId + " id upload request failed with status " + stateName);
         return true;
     }
 }
