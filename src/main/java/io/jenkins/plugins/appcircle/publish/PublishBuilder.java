@@ -13,7 +13,6 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
-import io.jenkins.plugins.appcircle.publish.Models.UserResponse;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import jenkins.tasks.SimpleBuildStep;
@@ -35,6 +34,7 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
     private String appPath;
     private String authEndpoint;
     private String apiEndpoint;
+    private String subOrganizationName;
 
     @DataBoundConstructor
     public PublishBuilder(String personalAPIToken, String platform, String publishProfile) {
@@ -100,6 +100,15 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
         this.apiEndpoint = apiEndpoint;
     }
 
+    public String getSubOrganizationName() {
+        return subOrganizationName;
+    }
+
+    @DataBoundSetter
+    public void setSubOrganizationName(String subOrganizationName) {
+        this.subOrganizationName = subOrganizationName;
+    }
+
     @Override
     public void perform(
             @NonNull Run<?, ?> run,
@@ -127,9 +136,9 @@ public class PublishBuilder extends Builder implements SimpleBuildStep {
                 }
             }
 
-            UserResponse response = AuthService.getAcToken(this.personalAPIToken, this.authEndpoint);
-            listener.getLogger().println("Login is successful.");
-            PublishService publishService = new PublishService(response.getAccessToken(), this.apiEndpoint);
+            String accessToken = AuthService.resolveAccessToken(
+                    this.personalAPIToken, this.authEndpoint, this.apiEndpoint, this.subOrganizationName, listener);
+            PublishService publishService = new PublishService(accessToken, this.apiEndpoint);
 
             String publishProfileId = publishService.getPublishProfileId(plat, this.publishProfile);
 

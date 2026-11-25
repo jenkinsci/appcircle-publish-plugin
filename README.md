@@ -36,6 +36,7 @@ The build step has two independent switches (`upload` and `publish`), both defau
 Add the **Appcircle Publish** build step to a Freestyle job (or use the `appcirclePublish` symbol in a Pipeline). Configure:
 
 - **Personal API Token:** Appcircle Personal API Token used to authenticate Appcircle services.
+- **Sub-Organization Name:** optional; the sub-organization that owns the Publish profile. Use it only when the Personal API Token belongs to the root organization.
 - **Platform:** `iOS` or `Android`.
 - **Publish Profile Name:** name of the Publish profile to target (unique per platform).
 - **Upload binary:** upload App Path as a new app version. (At least one of Upload / Trigger publish flow must be checked.)
@@ -56,9 +57,29 @@ appcirclePublish personalAPIToken: env.AC_PERSONAL_API_TOKEN,
 
 ### Self-Hosted Appcircle
 
-Set the optional `authEndpoint` / `apiEndpoint` to target a self-hosted Appcircle installation. Both default to the Appcircle cloud (`https://auth.appcircle.io` / `https://api.appcircle.io`).
+Set the optional `authEndpoint` / `apiEndpoint` to target a self-hosted Appcircle installation. Both default to the Appcircle cloud (`https://auth.appcircle.io` / `https://api.appcircle.io`). Set both together. If you set only one of them, the build stops before it sends a request, so a self-hosted token never goes to the Appcircle cloud.
 
 > **Self-signed or private CA certificates:** If your self-hosted Appcircle server uses a self-signed certificate (or one issued by a private/internal CA), requests will fail certificate validation. The plugin does not disable TLS verification. Trust the server's CA on the Jenkins agent's JVM (import it into the `cacerts` truststore, or set `-Djavax.net.ssl.trustStore`).
+
+### Sub-Organizations
+
+If your Personal API Token belongs to the root organization and the target publish profile is in a sub-organization,
+set the optional `subOrganizationName` parameter. The plugin then uses a token of that sub-organization for all
+later requests. If you use a Personal API Token of the sub-organization, you do not need this parameter.
+
+```groovy
+appcirclePublish personalAPIToken: env.AC_PERSONAL_API_TOKEN,
+                 subOrganizationName: 'SUB_ORGANIZATION_NAME',
+                 platform: 'ios',
+                 publishProfile: 'My Publish Profile',
+                 upload: true,
+                 publish: true,
+                 appPath: 'app.ipa'
+```
+
+- `subOrganizationName`: Optional. The exact name of the sub-organization (case-sensitive). If the plugin cannot find
+  the sub-organization, or the token cannot access it, the build fails. The plugin does not fall back to the root
+  organization.
 
 ## References
 
